@@ -24,7 +24,7 @@
 <body>
 
 <div id="setupScreen">
-  <h1>Paced Repetition Timer</h1>
+  <h1>Workout Pace</h1>
   <label>Time (minutes):<br>
     <input type="number" id="inputTime" min="1" value="20" oninput="updateInterval()" />
   </label><br>
@@ -73,13 +73,17 @@
       ctx.resume();
     }
 
-    // Play silent beep immediately to unlock sound
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    g.gain.value = 0.00001; // effectively silent
-    o.connect(g); g.connect(ctx.destination);
-    o.start();
-    o.stop(ctx.currentTime + 0.01);
+    try {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      g.gain.value = 0.01; // very quiet
+      o.connect(g); g.connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + 0.05);
+      unlocked = true;
+    } catch (err) {
+      console.warn('Audio unlock error:', err);
+    }
 
     if ('wakeLock' in navigator) {
       navigator.wakeLock.request('screen').then(lock => {
@@ -87,13 +91,10 @@
         wakeLock.addEventListener('release', () => {
           console.log('Wake lock released');
         });
-        console.log('Wake lock acquired');
       }).catch(err => {
         console.warn('Wake lock error:', err);
       });
     }
-
-    unlocked = true;
   }
 
   function beep(freq = 880, durMs = 200) {
@@ -198,7 +199,6 @@
     return `${m}:${s}.${hs}`;
   }
 
-  // Bind button to unlock + start logic
   $('startBtn').addEventListener('click', () => {
     unlockAudioAndWakeLock();
     prepareStart();
