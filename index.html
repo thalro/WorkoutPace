@@ -69,21 +69,17 @@
       ctx = new (window.AudioContext || window.webkitAudioContext)();
     }
 
-    if (ctx.state === 'suspended') {
-      ctx.resume();
-    }
+    const buffer = ctx.createBuffer(1, 1, 22050);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    source.start(0);
 
-    try {
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      g.gain.value = 0.01; // very quiet
-      o.connect(g); g.connect(ctx.destination);
-      o.start();
-      o.stop(ctx.currentTime + 0.05);
+    ctx.resume().then(() => {
       unlocked = true;
-    } catch (err) {
+    }).catch(err => {
       console.warn('Audio unlock error:', err);
-    }
+    });
 
     if ('wakeLock' in navigator) {
       navigator.wakeLock.request('screen').then(lock => {
