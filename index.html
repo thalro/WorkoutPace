@@ -1,27 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Paced Repetition Timer</title>
-<style>
-  body {font-family:sans-serif;text-align:center;padding:2em;background:#f0f0f0;}
-  .hidden {display:none!important;}
-  input {padding:.5em;font-size:1.2em;width:100px;margin:.5em;}
-  button{font-size:1.2em;padding:.6em 1.2em;margin:.5em;cursor:pointer;}
-  #timeDisplay{font-size:2em;margin-bottom:1em;}
-  #repDisplay{font-size:5em;margin:.5em 0;}
-  #intervalInfo{margin-top:1em;font-size:1.1em;color:#555;}
-  #countdownOverlay{position:fixed;top:0;left:0;width:100%;height:100%;
-                    background:rgba(0,0,0,.85);color:#fff;font-size:5em;
-                    display:none;align-items:center;justify-content:center;z-index:10;}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workout Pace</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 2em;
+      background: #f0f0f0;
+    }
+    .hidden {
+      display: none !important;
+    }
+    input {
+      padding: 0.5em;
+      font-size: 1.2em;
+      width: 100px;
+      margin: 0.5em;
+    }
+    button {
+      font-size: 1.2em;
+      padding: 0.6em 1.2em;
+      margin: 0.5em;
+      cursor: pointer;
+    }
+    #timeDisplay {
+      font-size: 2em;
+      margin-bottom: 1em;
+    }
+    #repDisplay {
+      font-size: 5em;
+      margin: 0.5em 0;
+    }
+    #intervalInfo {
+      margin-top: 1em;
+      font-size: 1.1em;
+      color: #555;
+    }
+    #countdownOverlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      font-size: 5em;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+  </style>
 </head>
 <body>
 
 <!-- ────── SET-UP SCREEN ────── -->
 <div id="setupScreen">
-  <h1>Paced Repetition Timer</h1>
+  <h1>Workout Pace</h1>
   <label>Time (minutes):<br>
     <input type="number" id="inputTime" min="1" value="20" oninput="updateInterval()" />
   </label><br>
@@ -46,123 +82,156 @@
 </div>
 
 <script>
-/* =========  CONSTANTS & UTILS  ========= */
-const ctx = new (window.AudioContext || window.webkitAudioContext)();   // one context for all beeps
-function beep(freq = 880, durMs = 200) {
-  const o = ctx.createOscillator(), g = ctx.createGain();
-  o.frequency.value = freq;
-  o.connect(g); g.connect(ctx.destination);
-  o.start();  g.gain.setValueAtTime(1, ctx.currentTime);
-  o.stop(ctx.currentTime + durMs / 1000);
-}
-function formatTime(ms) {
-  const t = Math.max(0, ms) / 1000,
-        m = Math.floor(t / 60).toString().padStart(2,'0'),
-        s = Math.floor(t % 60).toString().padStart(2,'0'),
-        hs= Math.floor((t % 1)*100).toString().padStart(2,'0');
-  return `${m}:${s}.${hs}`;
-}
+  /* =========  CONSTANTS & UTILS  ========= */
+  let ctx = null;  // shared AudioContext
+  let wakeLock = null;
 
-/* =========  STATE VARIABLES  ========= */
-let startPerf, endPerf, totalMs, intervalMs, reps;
-let rep = 1, paused = false, pausePerf = 0;
-let loopId;
-
-/* =========  ELEMENT SHORTCUTS  ========= */
-const $ = id => document.getElementById(id);
-const countdownOverlay = $('countdownOverlay'), cdDisplay = $('countdownDisplay');
-
-/* =========  INPUT HANDLING ========= */
-function updateInterval() {
-  const min = parseFloat($('inputTime').value), r = parseInt($('inputReps').value);
-  if (!isNaN(min) && !isNaN(r) && r>0)
-    $('intervalInfo').textContent = `Each rep: ${(min*60/r).toFixed(1)} seconds`;
-}
-
-/* =========  COUNTDOWN THEN START ========= */
-function prepareStart(){
-  let c = 5;
-  cdDisplay.textContent = c;
-  countdownOverlay.style.display = 'flex'; countdownOverlay.classList.remove('hidden');
-  beep(440,150);                           // first countdown beep (5)
-
-  const cdInterval = setInterval(()=>{
-    c--;
-    cdDisplay.textContent = c;
-    if (c>0){             // 4-3-2 => low-pitch beeps, skip final 1-beep
-      beep(440,150);
-    } else {              // c==0 → start the session
-      clearInterval(cdInterval);
-      countdownOverlay.style.display = 'none';
-      startSession();
+  function unlockAudio() {
+    if (!ctx) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
     }
-  },1000);
-}
-
-/* =========  START SESSION ========= */
-function startSession(){
-  const minutes = parseFloat($('inputTime').value);
-  reps       = parseInt($('inputReps').value);
-  totalMs    = minutes * 60_000;
-  intervalMs = totalMs / reps;
-
-  startPerf = performance.now();
-  endPerf   = startPerf + totalMs;
-  rep       = 1;
-  paused    = false;
-
-  $('repDisplay').textContent  = rep;
-  $('setupScreen').classList.add('hidden');
-  $('timerScreen').classList.remove('hidden');
-  beep();                                    // first rep beep
-
-  loopId = requestAnimationFrame(loop);
-}
-
-/* =========  MAIN LOOP (≈30 ms) ========= */
-function loop(now){
-  if (paused) { loopId = requestAnimationFrame(loop); return; }
-
-  const remaining = endPerf - now;
-  $('timeDisplay').textContent = formatTime(remaining);
-
-  const shouldRep = Math.floor((now - startPerf) / intervalMs) + 1;
-  if (shouldRep > rep && shouldRep <= reps){
-    rep = shouldRep;
-    $('repDisplay').textContent = rep;
-    beep();
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
   }
 
-  if (remaining <= 0){
-    $('timeDisplay').textContent = '00:00.00';   // keep final display
-    beep(880,600);                               // long final beep
-  } else {
+  function requestWakeLock() {
+    if ('wakeLock' in navigator) {
+      navigator.wakeLock.request('screen').then(lock => {
+        wakeLock = lock;
+        console.log('Wake lock acquired');
+        wakeLock.addEventListener('release', () => {
+          console.log('Wake lock released');
+        });
+      }).catch(err => {
+        console.warn('Wake lock request failed:', err);
+      });
+    }
+  }
+
+  function releaseWakeLock() {
+    if (wakeLock) {
+      wakeLock.release();
+      wakeLock = null;
+    }
+  }
+
+  function beep(freq = 880, durMs = 200) {
+    if (!ctx) return;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = freq;
+    o.connect(g); g.connect(ctx.destination);
+    o.start();  g.gain.setValueAtTime(1, ctx.currentTime);
+    o.stop(ctx.currentTime + durMs / 1000);
+  }
+
+  function formatTime(ms) {
+    const t = Math.max(0, ms) / 1000,
+          m = Math.floor(t / 60).toString().padStart(2,'0'),
+          s = Math.floor(t % 60).toString().padStart(2,'0'),
+          hs= Math.floor((t % 1)*100).toString().padStart(2,'0');
+    return `${m}:${s}.${hs}`;
+  }
+
+  const $ = id => document.getElementById(id);
+  const countdownOverlay = $('countdownOverlay'), cdDisplay = $('countdownDisplay');
+
+  let startPerf, endPerf, totalMs, intervalMs, reps;
+  let rep = 1, paused = false, pausePerf = 0;
+  let loopId;
+
+  function updateInterval() {
+    const min = parseFloat($('inputTime').value), r = parseInt($('inputReps').value);
+    if (!isNaN(min) && !isNaN(r) && r > 0)
+      $('intervalInfo').textContent = `Each rep: ${(min * 60 / r).toFixed(1)} seconds`;
+  }
+
+  function prepareStart() {
+    unlockAudio();    // iOS fix
+    requestWakeLock(); // prevent screen locking
+
+    let c = 5;
+    cdDisplay.textContent = c;
+    countdownOverlay.style.display = 'flex'; countdownOverlay.classList.remove('hidden');
+    beep(440, 150); // first countdown beep
+
+    const cdInterval = setInterval(() => {
+      c--;
+      cdDisplay.textContent = c;
+      if (c > 0) {
+        beep(440, 150); // countdown beep
+      } else {
+        clearInterval(cdInterval);
+        countdownOverlay.style.display = 'none';
+        startSession();
+      }
+    }, 1000);
+  }
+
+  function startSession() {
+    const minutes = parseFloat($('inputTime').value);
+    reps = parseInt($('inputReps').value);
+    totalMs = minutes * 60_000;
+    intervalMs = totalMs / reps;
+
+    startPerf = performance.now();
+    endPerf = startPerf + totalMs;
+    rep = 1;
+    paused = false;
+
+    $('repDisplay').textContent = rep;
+    $('setupScreen').classList.add('hidden');
+    $('timerScreen').classList.remove('hidden');
+    beep(); // first rep beep
+
     loopId = requestAnimationFrame(loop);
   }
-}
 
-/* =========  PAUSE / RESUME ========= */
-function togglePause(){
-  if (!paused){
-    paused = true;
-    pausePerf = performance.now();
-  } else {
-    const dt = performance.now() - pausePerf;
-    startPerf += dt; endPerf += dt;
-    paused = false;
+  function loop(now) {
+    if (paused) {
+      loopId = requestAnimationFrame(loop);
+      return;
+    }
+
+    const remaining = endPerf - now;
+    $('timeDisplay').textContent = formatTime(remaining);
+
+    const shouldRep = Math.floor((now - startPerf) / intervalMs) + 1;
+    if (shouldRep > rep && shouldRep <= reps) {
+      rep = shouldRep;
+      $('repDisplay').textContent = rep;
+      beep();
+    }
+
+    if (remaining <= 0) {
+      $('timeDisplay').textContent = '00:00.00';
+      beep(880, 600); // long final beep
+    } else {
+      loopId = requestAnimationFrame(loop);
+    }
   }
-}
 
-/* =========  STOP ========= */
-function stop(){
-  cancelAnimationFrame(loopId);
-  $('timerScreen').classList.add('hidden');
-  $('setupScreen').classList.remove('hidden');
-  countdownOverlay.classList.add('hidden'); countdownOverlay.style.display='none';
-}
+  function togglePause() {
+    if (!paused) {
+      paused = true;
+      pausePerf = performance.now();
+    } else {
+      const dt = performance.now() - pausePerf;
+      startPerf += dt; endPerf += dt;
+      paused = false;
+    }
+  }
 
-/* =========  INIT ========= */
-updateInterval();
+  function stop() {
+    cancelAnimationFrame(loopId);
+    releaseWakeLock();
+    $('timerScreen').classList.add('hidden');
+    $('setupScreen').classList.remove('hidden');
+    countdownOverlay.classList.add('hidden');
+    countdownOverlay.style.display = 'none';
+  }
+
+  updateInterval();
 </script>
 </body>
 </html>
