@@ -5,59 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Workout Pace</title>
   <style>
-    body {
-      font-family: sans-serif;
-      text-align: center;
-      padding: 2em;
-      background: #f0f0f0;
-    }
-    .hidden {
-      display: none !important;
-    }
-    input {
-      padding: 0.5em;
-      font-size: 1.2em;
-      width: 100px;
-      margin: 0.5em;
-    }
-    button {
-      font-size: 1.2em;
-      padding: 0.6em 1.2em;
-      margin: 0.5em;
-      cursor: pointer;
-    }
-    #timeDisplay {
-      font-size: 2em;
-      margin-bottom: 1em;
-    }
-    #repDisplay {
-      font-size: 5em;
-      margin: 0.5em 0;
-    }
-    #intervalInfo {
-      margin-top: 1em;
-      font-size: 1.1em;
-      color: #555;
-    }
+    body { font-family: sans-serif; text-align: center; padding: 2em; background: #f0f0f0; }
+    .hidden { display: none !important; }
+    input { padding: 0.5em; font-size: 1.2em; width: 100px; margin: 0.5em; }
+    button { font-size: 1.2em; padding: 0.6em 1.2em; margin: 0.5em; cursor: pointer; }
+    #timeDisplay { font-size: 2em; margin-bottom: 1em; }
+    #repDisplay { font-size: 5em; margin: 0.5em 0; }
+    #intervalInfo { margin-top: 1em; font-size: 1.1em; color: #555; }
     #countdownOverlay {
-      position: fixed;
-      top: 0; left: 0;
+      position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.85);
-      color: white;
+      background: rgba(0,0,0,0.85); color: white;
       font-size: 5em;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 10;
+      display: none; align-items: center; justify-content: center; z-index: 10;
     }
   </style>
 </head>
 <body>
 
-<!-- ────── SET-UP SCREEN ────── -->
 <div id="setupScreen">
-  <h1>Workout Pace</h1>
+  <h1>Paced Repetition Timer</h1>
   <label>Time (minutes):<br>
     <input type="number" id="inputTime" min="1" value="20" oninput="updateInterval()" />
   </label><br>
@@ -65,10 +32,9 @@
     <input type="number" id="inputReps" min="1" value="20" oninput="updateInterval()" />
   </label><br>
   <div id="intervalInfo">Each rep: 60.0 seconds</div>
-  <button onclick="prepareStart()">Start</button>
+  <button id="startBtn">Start</button>
 </div>
 
-<!-- ────── ACTIVE TIMER SCREEN ────── -->
 <div id="timerScreen" class="hidden">
   <div id="timeDisplay">00:00.00</div>
   <div id="repDisplay">1</div>
@@ -76,69 +42,21 @@
   <button onclick="stop()">Stop</button>
 </div>
 
-<!-- ────── COUNTDOWN OVERLAY ────── -->
 <div id="countdownOverlay" class="hidden">
   <div id="countdownDisplay">5</div>
 </div>
 
 <script>
-  /* =========  CONSTANTS & UTILS  ========= */
-  let ctx = null;  // shared AudioContext
+  let ctx = null;
   let wakeLock = null;
-
-  function unlockAudio() {
-    if (!ctx) {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (ctx.state === 'suspended') {
-      ctx.resume();
-    }
-  }
-
-  function requestWakeLock() {
-    if ('wakeLock' in navigator) {
-      navigator.wakeLock.request('screen').then(lock => {
-        wakeLock = lock;
-        console.log('Wake lock acquired');
-        wakeLock.addEventListener('release', () => {
-          console.log('Wake lock released');
-        });
-      }).catch(err => {
-        console.warn('Wake lock request failed:', err);
-      });
-    }
-  }
-
-  function releaseWakeLock() {
-    if (wakeLock) {
-      wakeLock.release();
-      wakeLock = null;
-    }
-  }
-
-  function beep(freq = 880, durMs = 200) {
-    if (!ctx) return;
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.frequency.value = freq;
-    o.connect(g); g.connect(ctx.destination);
-    o.start();  g.gain.setValueAtTime(1, ctx.currentTime);
-    o.stop(ctx.currentTime + durMs / 1000);
-  }
-
-  function formatTime(ms) {
-    const t = Math.max(0, ms) / 1000,
-          m = Math.floor(t / 60).toString().padStart(2,'0'),
-          s = Math.floor(t % 60).toString().padStart(2,'0'),
-          hs= Math.floor((t % 1)*100).toString().padStart(2,'0');
-    return `${m}:${s}.${hs}`;
-  }
-
-  const $ = id => document.getElementById(id);
-  const countdownOverlay = $('countdownOverlay'), cdDisplay = $('countdownDisplay');
+  let unlocked = false;
 
   let startPerf, endPerf, totalMs, intervalMs, reps;
   let rep = 1, paused = false, pausePerf = 0;
   let loopId;
+
+  const $ = id => document.getElementById(id);
+  const countdownOverlay = $('countdownOverlay'), cdDisplay = $('countdownDisplay');
 
   function updateInterval() {
     const min = parseFloat($('inputTime').value), r = parseInt($('inputReps').value);
@@ -146,20 +64,58 @@
       $('intervalInfo').textContent = `Each rep: ${(min * 60 / r).toFixed(1)} seconds`;
   }
 
-  function prepareStart() {
-    unlockAudio();    // iOS fix
-    requestWakeLock(); // prevent screen locking
+  function unlockAudioAndWakeLock() {
+    if (!ctx) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+    }
 
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+
+    // Play silent beep immediately to unlock sound
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    g.gain.value = 0.00001; // effectively silent
+    o.connect(g); g.connect(ctx.destination);
+    o.start();
+    o.stop(ctx.currentTime + 0.01);
+
+    if ('wakeLock' in navigator) {
+      navigator.wakeLock.request('screen').then(lock => {
+        wakeLock = lock;
+        wakeLock.addEventListener('release', () => {
+          console.log('Wake lock released');
+        });
+        console.log('Wake lock acquired');
+      }).catch(err => {
+        console.warn('Wake lock error:', err);
+      });
+    }
+
+    unlocked = true;
+  }
+
+  function beep(freq = 880, durMs = 200) {
+    if (!ctx || !unlocked) return;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = freq;
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); g.gain.setValueAtTime(1, ctx.currentTime);
+    o.stop(ctx.currentTime + durMs / 1000);
+  }
+
+  function prepareStart() {
     let c = 5;
     cdDisplay.textContent = c;
     countdownOverlay.style.display = 'flex'; countdownOverlay.classList.remove('hidden');
-    beep(440, 150); // first countdown beep
+    beep(440, 150);
 
     const cdInterval = setInterval(() => {
       c--;
       cdDisplay.textContent = c;
       if (c > 0) {
-        beep(440, 150); // countdown beep
+        beep(440, 150);
       } else {
         clearInterval(cdInterval);
         countdownOverlay.style.display = 'none';
@@ -182,7 +138,7 @@
     $('repDisplay').textContent = rep;
     $('setupScreen').classList.add('hidden');
     $('timerScreen').classList.remove('hidden');
-    beep(); // first rep beep
+    beep();
 
     loopId = requestAnimationFrame(loop);
   }
@@ -205,7 +161,7 @@
 
     if (remaining <= 0) {
       $('timeDisplay').textContent = '00:00.00';
-      beep(880, 600); // long final beep
+      beep(880, 600);
     } else {
       loopId = requestAnimationFrame(loop);
     }
@@ -224,12 +180,29 @@
 
   function stop() {
     cancelAnimationFrame(loopId);
-    releaseWakeLock();
+    if (wakeLock) {
+      wakeLock.release();
+      wakeLock = null;
+    }
     $('timerScreen').classList.add('hidden');
     $('setupScreen').classList.remove('hidden');
     countdownOverlay.classList.add('hidden');
     countdownOverlay.style.display = 'none';
   }
+
+  function formatTime(ms) {
+    const t = Math.max(0, ms) / 1000,
+          m = Math.floor(t / 60).toString().padStart(2, '0'),
+          s = Math.floor(t % 60).toString().padStart(2, '0'),
+          hs = Math.floor((t % 1) * 100).toString().padStart(2, '0');
+    return `${m}:${s}.${hs}`;
+  }
+
+  // Bind button to unlock + start logic
+  $('startBtn').addEventListener('click', () => {
+    unlockAudioAndWakeLock();
+    prepareStart();
+  });
 
   updateInterval();
 </script>
