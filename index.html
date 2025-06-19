@@ -19,11 +19,24 @@
       font-size: 5em;
       display: none; align-items: center; justify-content: center; z-index: 10;
     }
+    #audioUnlockScreen {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: #000; color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2em; z-index: 100;
+    }
   </style>
 </head>
 <body>
 
-<div id="setupScreen">
+<div id="audioUnlockScreen">
+  <div>
+    <p>Tap anywhere to enable sound</p>
+  </div>
+</div>
+
+<div id="setupScreen" class="hidden">
   <h1>Workout Pace</h1>
   <label>Time (minutes):<br>
     <input type="number" id="inputTime" min="1" value="20" oninput="updateInterval()" />
@@ -197,8 +210,13 @@
     return `${m}:${s}.${hs}`;
   }
 
-  $('startBtn').addEventListener('click', () => {
+  document.getElementById('audioUnlockScreen').addEventListener('click', () => {
     unlockAudioAndWakeLock();
+    document.getElementById('audioUnlockScreen').classList.add('hidden');
+    $('setupScreen').classList.remove('hidden');
+  }, { once: true });
+
+  $('startBtn').addEventListener('click', () => {
     prepareStart();
   });
 
