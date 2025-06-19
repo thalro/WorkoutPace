@@ -94,7 +94,7 @@
   <div id="countdownDisplay">5</div>
 </div>
 
-<audio id="applauseSound">
+<audio id="applauseSound" preload="auto">
   <source src="Applause.mp3" type="audio/mpeg">
 </audio>
 
@@ -128,6 +128,11 @@
   function unlockAudio() {
     if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
     if (ctx.state === 'suspended') ctx.resume();
+
+    // Preload applause on user gesture
+    const applause = document.getElementById('applauseSound');
+    applause.volume = 0;
+    applause.play().then(() => applause.pause());
   }
 
   function requestWakeLock() {
