@@ -20,10 +20,10 @@
     .hidden {
       display: none !important;
     }
-    input, select {
+    select {
       padding: 0.5em;
       font-size: 1.2em;
-      width: 100px;
+      width: 120px;
       margin: 0.5em;
     }
     button {
@@ -65,10 +65,28 @@
 <div id="setupScreen">
   <h1>Workout Pace</h1>
   <label>Time (minutes):<br>
-    <input type="number" id="inputTime" min="1" max="60" step="1" value="20" inputmode="numeric" pattern="[0-9]*" oninput="updateInterval()" />
+    <select id="inputTime" onchange="updateInterval()">
+      <!-- 1 to 60 minutes -->
+      " + (() => {
+        let opts = "";
+        for (let i = 1; i <= 60; i++) {
+          opts += `<option value="${i}" ${i === 20 ? 'selected' : ''}>${i}</option>`;
+        }
+        return opts;
+      })() + "
+    </select>
   </label><br>
   <label>Reps:<br>
-    <input type="number" id="inputReps" min="1" max="100" step="1" value="20" inputmode="numeric" pattern="[0-9]*" oninput="updateInterval()" />
+    <select id="inputReps" onchange="updateInterval()">
+      <!-- 1 to 1000 reps -->
+      " + (() => {
+        let opts = "";
+        for (let i = 1; i <= 1000; i++) {
+          opts += `<option value="${i}" ${i === 20 ? 'selected' : ''}>${i}</option>`;
+        }
+        return opts;
+      })() + "
+    </select>
   </label><br>
   <div id="intervalInfo">Each rep: 60.0 seconds</div>
   <button onclick="prepareStart()">Start</button>
