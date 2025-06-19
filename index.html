@@ -32,7 +32,7 @@
       cursor: pointer;
     }
     #timeDisplay {
-      font-size: 2em;
+      font-size: 3em;
       margin-bottom: 1em;
       font-family: monospace;
       width: 8ch;
@@ -94,6 +94,10 @@
   <div id="countdownDisplay">5</div>
 </div>
 
+<audio id="applauseSound">
+  <source src="Applause.mp3" type="audio/mpeg">
+</audio>
+
 <script>
   window.onload = function () {
     const timeSelect = document.getElementById('inputTime');
@@ -149,6 +153,23 @@
     o.connect(g); g.connect(ctx.destination);
     o.start();  g.gain.setValueAtTime(1, ctx.currentTime);
     o.stop(ctx.currentTime + durMs / 1000);
+  }
+
+  function playApplause() {
+    const applause = document.getElementById('applauseSound');
+    applause.currentTime = 0;
+    applause.volume = 1.0;
+    applause.play().catch(e => console.log('Playback failed', e));
+
+    const fadeOut = setInterval(() => {
+      if (applause.volume > 0.05) {
+        applause.volume -= 0.05;
+      } else {
+        applause.volume = 0;
+        applause.pause();
+        clearInterval(fadeOut);
+      }
+    }, 400);
   }
 
   function formatTime(ms) {
@@ -232,7 +253,8 @@
 
     if (remaining <= 0) {
       $('timeDisplay').textContent = '00:00:00';
-      beep(880, 600);
+      beep(880, 1000);
+      setTimeout(playApplause, 800);
     } else {
       loopId = requestAnimationFrame(loop);
     }
