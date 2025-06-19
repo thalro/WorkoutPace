@@ -9,7 +9,8 @@
       height: 100%;
       margin: 0;
       font-family: sans-serif;
-      background: #f0f0f0;
+      background: #000;
+      color: white;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -20,21 +21,23 @@
     .hidden {
       display: none !important;
     }
-    select {
-      padding: 0.5em;
-      font-size: 1.2em;
-      width: 120px;
-      margin: 0.5em;
-    }
-    button {
-      font-size: 1.2em;
-      padding: 0.6em 1.2em;
+    select, button {
+      background: #000;
+      color: white;
+      border: none;
+      font-size: 1.5em;
+      font-weight: bold;
+      padding: 0.6em 1em;
       margin: 0.5em;
       cursor: pointer;
     }
     #timeDisplay {
       font-size: 2em;
       margin-bottom: 1em;
+      font-family: monospace;
+      width: 8ch;
+      margin-left: auto;
+      margin-right: auto;
     }
     #repDisplay {
       font-size: 5em;
@@ -43,7 +46,7 @@
     #intervalInfo {
       margin-top: 1em;
       font-size: 1.1em;
-      color: #555;
+      color: white;
     }
     #countdownOverlay {
       position: fixed;
@@ -57,6 +60,10 @@
       justify-content: center;
       z-index: 10;
     }
+    label {
+      display: block;
+      margin: 1em 0;
+    }
   </style>
 </head>
 <body>
@@ -64,25 +71,19 @@
 <!-- ────── SET-UP SCREEN ────── -->
 <div id="setupScreen">
   <h1>Workout Pace</h1>
-  <label>Time (minutes):<br>
-    <select id="inputTime" onchange="updateInterval()">
-      <!-- 1 to 60 minutes -->
-      " + Array.from({length: 60}, (_, i) => `<option value="${i+1}" ${i+1 === 20 ? 'selected' : ''}>${i+1}</option>`).join('') + "
-    </select>
-  </label><br>
-  <label>Reps:<br>
-    <select id="inputReps" onchange="updateInterval()">
-      <!-- 1 to 1000 reps -->
-      " + Array.from({length: 1000}, (_, i) => `<option value="${i+1}" ${i+1 === 20 ? 'selected' : ''}>${i+1}</option>`).join('') + "
-    </select>
-  </label><br>
-  <div id="intervalInfo">Each rep: 60.0 seconds</div>
+  <label>
+    <select id="inputTime" onchange="updateInterval()"></select>
+  </label>
+  <label>
+    <select id="inputReps" onchange="updateInterval()"></select>
+  </label>
+  <div id="intervalInfo">60.0 s per rep</div>
   <button onclick="prepareStart()">Start</button>
 </div>
 
 <!-- ────── ACTIVE TIMER SCREEN ────── -->
 <div id="timerScreen" class="hidden">
-  <div id="timeDisplay">00:00.00</div>
+  <div id="timeDisplay">00:00:00</div>
   <div id="repDisplay">1</div>
   <button onclick="togglePause()">Pause</button>
   <button onclick="stop()">Stop</button>
@@ -94,7 +95,6 @@
 </div>
 
 <script>
-  // Populate select options on load
   window.onload = function () {
     const timeSelect = document.getElementById('inputTime');
     const repSelect = document.getElementById('inputReps');
@@ -102,7 +102,7 @@
     for (let i = 1; i <= 60; i++) {
       const opt = document.createElement('option');
       opt.value = i;
-      opt.textContent = i;
+      opt.textContent = i + ' min';
       if (i === 20) opt.selected = true;
       timeSelect.appendChild(opt);
     }
@@ -110,7 +110,7 @@
     for (let i = 1; i <= 1000; i++) {
       const opt = document.createElement('option');
       opt.value = i;
-      opt.textContent = i;
+      opt.textContent = i + ' reps';
       if (i === 20) opt.selected = true;
       repSelect.appendChild(opt);
     }
@@ -156,7 +156,7 @@
           m = Math.floor(t / 60).toString().padStart(2,'0'),
           s = Math.floor(t % 60).toString().padStart(2,'0'),
           hs= Math.floor((t % 1)*100).toString().padStart(2,'0');
-    return `${m}:${s}.${hs}`;
+    return `${m}:${s}:${hs}`;
   }
 
   const $ = id => document.getElementById(id);
@@ -169,7 +169,7 @@
   function updateInterval() {
     const min = parseFloat($('inputTime').value), r = parseInt($('inputReps').value);
     if (!isNaN(min) && !isNaN(r) && r > 0)
-      $('intervalInfo').textContent = `Each rep: ${(min * 60 / r).toFixed(1)} seconds`;
+      $('intervalInfo').textContent = `${(min * 60 / r).toFixed(1)} s per rep`;
   }
 
   function prepareStart() {
@@ -231,7 +231,7 @@
     }
 
     if (remaining <= 0) {
-      $('timeDisplay').textContent = '00:00.00';
+      $('timeDisplay').textContent = '00:00:00';
       beep(880, 600);
     } else {
       loopId = requestAnimationFrame(loop);
