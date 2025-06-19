@@ -124,21 +124,15 @@
 
   let ctx = null;
   let wakeLock = null;
-  let applausePreloaded = false;
+  let applauseReady = false;
 
   function unlockAudio() {
     if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
     if (ctx.state === 'suspended') ctx.resume();
 
-    if (!applausePreloaded) {
-      const applause = document.getElementById('applauseSound');
-      applause.volume = 0;
-      applause.play().then(() => {
-        applause.pause();
-        applause.volume = 1.0;
-        applausePreloaded = true;
-      }).catch(() => {});
-    }
+    const applause = document.getElementById('applauseSound');
+    applause.load();
+    applauseReady = true;
   }
 
   function requestWakeLock() {
@@ -167,6 +161,7 @@
   }
 
   function playApplause() {
+    if (!applauseReady) return;
     const applause = document.getElementById('applauseSound');
     applause.currentTime = 0;
     applause.volume = 1.0;
