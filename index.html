@@ -5,16 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Workout Pace</title>
   <style>
-    body {
+    html, body {
+      height: 100%;
+      margin: 0;
       font-family: sans-serif;
-      text-align: center;
-      padding: 2em;
       background: #f0f0f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    body > div {
+      text-align: center;
     }
     .hidden {
       display: none !important;
     }
-    input {
+    input, select {
       padding: 0.5em;
       font-size: 1.2em;
       width: 100px;
@@ -59,10 +65,10 @@
 <div id="setupScreen">
   <h1>Workout Pace</h1>
   <label>Time (minutes):<br>
-    <input type="number" id="inputTime" min="1" value="20" oninput="updateInterval()" />
+    <input type="number" id="inputTime" min="1" max="60" step="1" value="20" inputmode="numeric" pattern="[0-9]*" oninput="updateInterval()" />
   </label><br>
   <label>Reps:<br>
-    <input type="number" id="inputReps" min="1" value="20" oninput="updateInterval()" />
+    <input type="number" id="inputReps" min="1" max="100" step="1" value="20" inputmode="numeric" pattern="[0-9]*" oninput="updateInterval()" />
   </label><br>
   <div id="intervalInfo">Each rep: 60.0 seconds</div>
   <button onclick="prepareStart()">Start</button>
