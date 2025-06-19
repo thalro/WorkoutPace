@@ -107,7 +107,6 @@
       const opt = document.createElement('option');
       opt.value = i;
       opt.textContent = i + ' min';
-      if (i === 20) opt.selected = true;
       timeSelect.appendChild(opt);
     }
 
@@ -115,9 +114,15 @@
       const opt = document.createElement('option');
       opt.value = i;
       opt.textContent = i + ' reps';
-      if (i === 100) opt.selected = true;
       repSelect.appendChild(opt);
     }
+
+    // Load saved settings
+    const savedTime = localStorage.getItem('workoutTime');
+    const savedReps = localStorage.getItem('workoutReps');
+
+    timeSelect.value = savedTime || '20';
+    repSelect.value = savedReps || '100';
 
     updateInterval();
   };
@@ -196,8 +201,11 @@
 
   function updateInterval() {
     const min = parseFloat($('inputTime').value), r = parseInt($('inputReps').value);
-    if (!isNaN(min) && !isNaN(r) && r > 0)
+    if (!isNaN(min) && !isNaN(r) && r > 0) {
       $('intervalInfo').textContent = `${(min * 60 / r).toFixed(1)} s per rep`;
+      localStorage.setItem('workoutTime', min);
+      localStorage.setItem('workoutReps', r);
+    }
   }
 
   function prepareStart() {
