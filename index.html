@@ -85,7 +85,7 @@
 <div id="timerScreen" class="hidden">
   <div id="timeDisplay">00:00:00</div>
   <div id="repDisplay">1</div>
-  <button onclick="togglePause()">Pause</button>
+  <button id="pauseButton" onclick="togglePause()">Pause</button>
   <button onclick="stop()">Stop</button>
 </div>
 
@@ -238,6 +238,7 @@
     $('repDisplay').textContent = rep;
     $('setupScreen').classList.add('hidden');
     $('timerScreen').classList.remove('hidden');
+    $('pauseButton').textContent = 'Pause';
     beep();
 
     loopId = requestAnimationFrame(loop);
@@ -273,10 +274,12 @@
     if (!paused) {
       paused = true;
       pausePerf = performance.now();
+      $('pauseButton').textContent = 'Continue';
     } else {
       const dt = performance.now() - pausePerf;
       startPerf += dt; endPerf += dt;
       paused = false;
+      $('pauseButton').textContent = 'Pause';
     }
   }
 
