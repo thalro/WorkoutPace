@@ -124,15 +124,21 @@
 
   let ctx = null;
   let wakeLock = null;
+  let applausePreloaded = false;
 
   function unlockAudio() {
     if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
     if (ctx.state === 'suspended') ctx.resume();
 
-    // Preload applause on user gesture
-    const applause = document.getElementById('applauseSound');
-    applause.volume = 0;
-    applause.play().then(() => applause.pause());
+    if (!applausePreloaded) {
+      const applause = document.getElementById('applauseSound');
+      applause.volume = 0;
+      applause.play().then(() => {
+        applause.pause();
+        applause.volume = 1.0;
+        applausePreloaded = true;
+      }).catch(() => {});
+    }
   }
 
   function requestWakeLock() {
@@ -191,6 +197,7 @@
   let startPerf, endPerf, totalMs, intervalMs, reps;
   let rep = 1, paused = false, pausePerf = 0;
   let loopId;
+  let timerFinished = false;
 
   function updateInterval() {
     const min = parseFloat($('inputTime').value), r = parseInt($('inputReps').value);
@@ -201,6 +208,7 @@
   function prepareStart() {
     unlockAudio();
     requestWakeLock();
+    timerFinished = false;
 
     let c = 5;
     cdDisplay.textContent = c;
@@ -256,11 +264,12 @@
       beep();
     }
 
-    if (remaining <= 0) {
+    if (remaining <= 0 && !timerFinished) {
+      timerFinished = true;
       $('timeDisplay').textContent = '00:00:00';
       beep(880, 1000);
       setTimeout(playApplause, 800);
-    } else {
+    } else if (!timerFinished) {
       loopId = requestAnimationFrame(loop);
     }
   }
@@ -283,6 +292,7 @@
     $('setupScreen').classList.remove('hidden');
     countdownOverlay.classList.add('hidden');
     countdownOverlay.style.display = 'none';
+    timerFinished = false;
   }
 </script>
 </body>
