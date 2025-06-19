@@ -67,25 +67,13 @@
   <label>Time (minutes):<br>
     <select id="inputTime" onchange="updateInterval()">
       <!-- 1 to 60 minutes -->
-      " + (() => {
-        let opts = "";
-        for (let i = 1; i <= 60; i++) {
-          opts += `<option value="${i}" ${i === 20 ? 'selected' : ''}>${i}</option>`;
-        }
-        return opts;
-      })() + "
+      " + Array.from({length: 60}, (_, i) => `<option value="${i+1}" ${i+1 === 20 ? 'selected' : ''}>${i+1}</option>`).join('') + "
     </select>
   </label><br>
   <label>Reps:<br>
     <select id="inputReps" onchange="updateInterval()">
       <!-- 1 to 1000 reps -->
-      " + (() => {
-        let opts = "";
-        for (let i = 1; i <= 1000; i++) {
-          opts += `<option value="${i}" ${i === 20 ? 'selected' : ''}>${i}</option>`;
-        }
-        return opts;
-      })() + "
+      " + Array.from({length: 1000}, (_, i) => `<option value="${i+1}" ${i+1 === 20 ? 'selected' : ''}>${i+1}</option>`).join('') + "
     </select>
   </label><br>
   <div id="intervalInfo">Each rep: 60.0 seconds</div>
@@ -106,30 +94,44 @@
 </div>
 
 <script>
-  /* =========  CONSTANTS & UTILS  ========= */
-  let ctx = null;  // shared AudioContext
+  // Populate select options on load
+  window.onload = function () {
+    const timeSelect = document.getElementById('inputTime');
+    const repSelect = document.getElementById('inputReps');
+
+    for (let i = 1; i <= 60; i++) {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = i;
+      if (i === 20) opt.selected = true;
+      timeSelect.appendChild(opt);
+    }
+
+    for (let i = 1; i <= 1000; i++) {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = i;
+      if (i === 20) opt.selected = true;
+      repSelect.appendChild(opt);
+    }
+
+    updateInterval();
+  };
+
+  let ctx = null;
   let wakeLock = null;
 
   function unlockAudio() {
-    if (!ctx) {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (ctx.state === 'suspended') {
-      ctx.resume();
-    }
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
   }
 
   function requestWakeLock() {
     if ('wakeLock' in navigator) {
       navigator.wakeLock.request('screen').then(lock => {
         wakeLock = lock;
-        console.log('Wake lock acquired');
-        wakeLock.addEventListener('release', () => {
-          console.log('Wake lock released');
-        });
-      }).catch(err => {
-        console.warn('Wake lock request failed:', err);
-      });
+        wakeLock.addEventListener('release', () => console.log('Wake lock released'));
+      }).catch(err => console.warn('Wake lock request failed:', err));
     }
   }
 
@@ -171,19 +173,20 @@
   }
 
   function prepareStart() {
-    unlockAudio();    // iOS fix
-    requestWakeLock(); // prevent screen locking
+    unlockAudio();
+    requestWakeLock();
 
     let c = 5;
     cdDisplay.textContent = c;
-    countdownOverlay.style.display = 'flex'; countdownOverlay.classList.remove('hidden');
-    beep(440, 150); // first countdown beep
+    countdownOverlay.style.display = 'flex';
+    countdownOverlay.classList.remove('hidden');
+    beep(440, 150);
 
     const cdInterval = setInterval(() => {
       c--;
       cdDisplay.textContent = c;
       if (c > 0) {
-        beep(440, 150); // countdown beep
+        beep(440, 150);
       } else {
         clearInterval(cdInterval);
         countdownOverlay.style.display = 'none';
@@ -195,7 +198,7 @@
   function startSession() {
     const minutes = parseFloat($('inputTime').value);
     reps = parseInt($('inputReps').value);
-    totalMs = minutes * 60_000;
+    totalMs = minutes * 60000;
     intervalMs = totalMs / reps;
 
     startPerf = performance.now();
@@ -206,7 +209,7 @@
     $('repDisplay').textContent = rep;
     $('setupScreen').classList.add('hidden');
     $('timerScreen').classList.remove('hidden');
-    beep(); // first rep beep
+    beep();
 
     loopId = requestAnimationFrame(loop);
   }
@@ -229,7 +232,7 @@
 
     if (remaining <= 0) {
       $('timeDisplay').textContent = '00:00.00';
-      beep(880, 600); // long final beep
+      beep(880, 600);
     } else {
       loopId = requestAnimationFrame(loop);
     }
@@ -254,8 +257,6 @@
     countdownOverlay.classList.add('hidden');
     countdownOverlay.style.display = 'none';
   }
-
-  updateInterval();
 </script>
 </body>
 </html>
